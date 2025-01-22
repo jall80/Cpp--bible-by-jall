@@ -63,6 +63,7 @@ constexpr std::array<uint16_t, 3> CRTGreen{0, 255, 128};
 
 // Arrows icons control
 enum class Arrow {
+        None = 0,
         Up = 1,
         Down = 2,
         Both = 3,
@@ -286,7 +287,12 @@ std::vector<LineTextParams> generalTopics = {
     {"Topic17", 0, 0, CRTGreen, "GGG Standard Template Library (STL)", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
     {"Topic18", 0, 0, CRTGreen, "GGG File Handling in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
     {"Topic19", 0, 0, CRTGreen, "GGG Error Handling and Debugging", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic20", 0, 0, CRTGreen, "GGG Advanced Topics in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1}
+    {"Topic20", 0, 0, CRTGreen, "GGG Advanced Topics in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
+
+
+    {"Topic18", 0, 0, CRTGreen, "XXXXXXXXXXXXXXXXXXX", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic19", 0, 0, CRTGreen, "yyyyyyyyyyyyyyyyyyy", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic20", 0, 0, CRTGreen, "fffffffffffffffff", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1}
 };
 
 
@@ -1503,6 +1509,9 @@ Arrow findArraySurroundingRelation(const std::vector<int*>& vec, int number) {
                 } else if (hasNext) {
                     return Arrow::Down;  // Only a next array exists
                 }
+                else {
+                    return Arrow::None;  // Nor next nor previous array exists
+                }
             }
         }
     }
@@ -1536,6 +1545,8 @@ void drawArrowsBasedOnRelation(Arrow relationResult, sf::RenderWindow& window, s
         // Draw both the up and down arrows
         downArrow->draw(window);
         upArrow->draw(window);
+    } else if (relationResult == Arrow::None) {
+        return; // Nothing to print
     } else if (relationResult == Arrow::Error) {
         // Log an error if the relation result is invalid
         std::cerr << "Error: Invalid relationResult value. findArraySurroundingRelation() returned error. Value: " 
