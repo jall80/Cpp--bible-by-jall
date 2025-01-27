@@ -99,11 +99,11 @@ const int cols = SCREEN_WIDTH / BLOCK_SIZE;
 
 // Structure to represent a block of 30x30 pixels
 struct Block {
-    int x, y; // Coordinates of the block
-    int width = BLOCK_SIZE; // Width of the block
-    int height = BLOCK_SIZE; // Height of the block
+    uint16_t x, y; // Coordinates of the block
+    uint16_t width = BLOCK_SIZE; // Width of the block
+    uint16_t height = BLOCK_SIZE; // Height of the block
 
-    Block(int _x, int _y) : x(_x), y(_y) {}
+    Block(uint16_t _x, uint16_t _y) : x(_x), y(_y) {}
 };
 
 // Validation
@@ -203,16 +203,16 @@ std::vector<std::vector<Block>> createGrid(int width, int height, int blockSize)
     VALIDATE_NOT_BELOW_LIMIT(height, blockSize * 2);
 
     // Calculate the number of columns and rows based on the width, height, and block size
-    int cols = width / blockSize;
-    int rows = height / blockSize;
+    uint16_t cols = width / blockSize;
+    uint16_t rows = height / blockSize;
 
     // Create a 2D matrix with 'cols' columns, each initially empty
     std::vector<std::vector<Block>> grid(cols, std::vector<Block>());
 
     // Populate the grid with blocks
     // Iterate over columns (outer loop) and rows (inner loop)
-    for (int j = 0; j < cols; ++j) {
-        for (int i = 0; i < rows; ++i) {
+    for (uint16_t j = 0; j < cols; ++j) {
+        for (uint16_t i = 0; i < rows; ++i) {
             // Add a new Block at the calculated position (j * blockSize, i * blockSize)
             grid[j].emplace_back(j * blockSize, i * blockSize);
         }
@@ -221,6 +221,8 @@ std::vector<std::vector<Block>> createGrid(int width, int height, int blockSize)
     // Return the fully initialized grid
     return grid;
 }
+
+auto grid = createGrid(SCREEN_WIDTH, SCREEN_HEIGHT, BLOCK_SIZE);
 
 
 // Definitions for Screen and Texture Parameters
@@ -236,6 +238,7 @@ struct StructTextureObject {
     float velocity_x;
     float velocity_y;
 };
+
 
 // Cpp icon Initialization
 StructTextureObject iconCpp150 = {"iconCpp150", ICONS_PATH + CPP150_IMAGE_FILE, 150, 150, 0, 0, -1.0f, -2.0f};
@@ -269,6 +272,16 @@ ScreenBlocks_X general4BlocksX = {
     static_cast<uint16_t>(FourblocksSize),
     static_cast<uint16_t>(FourblocksSize * 2),
     static_cast<uint16_t>(FourblocksSize * 3),
+};
+
+std::vector<StructTextureObject> textureInfos = {
+    {BACKGROUND_IMAGE_OBJ, IMAGES_PATH + BACKGROUND_IMAGE_FILE, generalScreen.width, generalScreen.height, 0, 0},
+    {SOUND_ON_OBJ, ICONS_PATH + SOUND_ON_FILE, 50, 50, grid[122][1].x, grid[122][1].y},
+    {SOUND_OFF_OBJ, ICONS_PATH + SOUND_OFF_FILE, 50, 50, grid[122][1].x, grid[122][1].y},
+    {CPP100FILL_IMAGE_OBJ, ICONS_PATH + CPP100FILL_IMAGE_FILE, 50, 50, grid[122][8].x, grid[122][8].y},
+    {X100_IMAGE_OBJ, ICONS_PATH + X100_IMAGE_FILE, 50, 50, grid[122][8].x, grid[122][8].y},
+    {DOWN_ARROW_IMAGE_OBJ, ICONS_PATH + DOWN_ARROW_IMAGE_FILE, 64, 64, static_cast<uint16_t>(general4BlocksX.blockX2 - 200), static_cast<uint16_t>(generalScreen.height - generalScreen.bottomMargin - 50)},
+    {UP_ARROW_IMAGE_OBJ, ICONS_PATH + UP_ARROW_IMAGE_FILE, 64, 64, static_cast<uint16_t>(general4BlocksX.blockX2 - 250), static_cast<uint16_t>(generalScreen.height - generalScreen.bottomMargin - 50)},
 };
 
 // Text Line Parameters Definition
@@ -1732,7 +1745,7 @@ Arrow findArraySurroundingRelation(const std::vector<int*>& vec, int number) {
  * @param upArrow A unique pointer to the texture object for the up arrow.
  * @param downArrow A unique pointer to the texture object for the down arrow.
  */
-void drawArrowsBasedOnRelation(Arrow relationResult, sf::RenderWindow& window, std::unique_ptr<TextureObject>& upArrow, std::unique_ptr<TextureObject>& downArrow) {
+void drawArrowsBasedOnRelation(Arrow relationResult, sf::RenderWindow& window, const std::unique_ptr<TextureObject>& upArrow, const std::unique_ptr<TextureObject>& downArrow) {
     // Draw arrows based on the result of the relation
     if (relationResult == Arrow::Up) {
         upArrow->draw(window);  // Only draw the up arrow
@@ -2095,6 +2108,62 @@ void moveObjects(std::vector<TextureObject*>& objects,
     }
 }
 
+/**
+ * @brief Retrieves a const reference to a unique_ptr<TextureObject> from the vector based on its name.
+ * 
+ * This function iterates through a vector of TextureObject instances managed by unique_ptr.
+ * It compares the name of each object with the provided name and returns a const reference to 
+ * the matching unique_ptr if found. If no match is found, it throws an exception or can return a null reference.
+ * 
+ * @param textureObjects A vector of unique_ptr<TextureObject> containing the objects to search through.
+ * @param name The name of the TextureObject to retrieve.
+ * @return const std::unique_ptr<TextureObject>& A const reference to the matching unique_ptr, or throws an exception if not found.
+ */
+const std::unique_ptr<TextureObject>& getTextureObjectByName(const std::vector<std::unique_ptr<TextureObject>>& textureObjects, const std::string& name) {
+    // Iterate through the vector of unique_ptrs
+    for (const auto& textureObject : textureObjects) {
+        // Check if the object exists and its name matches the given name
+        if (textureObject && textureObject->getName() == name) {
+            return textureObject; // Return a const reference to the matching unique_ptr
+        }
+    }
+    throw std::runtime_error("TextureObject not found: " + name); // Handle not found case (optional)
+}
+
+
+/**
+ * @brief Loads textures into a vector of unique_ptr<TextureObject>.
+ * 
+ * This function iterates through a vector of texture information structures (StructTextureObject),
+ * creates TextureObject instances for each, attempts to load the associated texture, and stores 
+ * the successfully created TextureObjects into a provided vector.
+ * 
+ * @param textureObjects A vector of unique_ptr<TextureObject> to store loaded textures.
+ * @param textureInfos A vector of StructTextureObject containing texture metadata.
+ * @return int Returns 0 if all textures are loaded successfully, or -1 if any texture fails to load.
+ */
+
+int loadTextures(
+    std::vector<std::unique_ptr<TextureObject>>& textureObjects, 
+    const std::vector<StructTextureObject>& textureInfos
+) {
+    for (const auto& info : textureInfos) {
+        // Create a unique_ptr for the TextureObject
+        auto textureObject = std::make_unique<TextureObject>(
+            info.name, info.width, info.height, info.x_position, info.y_position
+        );
+
+        // Attempt to load the texture using the provided path
+        if (!textureObject->loadTexture(info.path)) {
+            return -1; // Return -1 if texture loading fails
+        }
+
+        // Move the unique_ptr into the textureObjects vector
+        textureObjects.push_back(std::move(textureObject));
+    }
+
+    return 0; // Return 0 if all textures are successfully loaded
+}
 
 
 uint16_t initAndStartMainWindowLoop() {
@@ -2110,28 +2179,12 @@ uint16_t initAndStartMainWindowLoop() {
     // Create the main application window
     sf::RenderWindow window(sf::VideoMode(generalScreen.width, generalScreen.height), WINDOW_TITLE);
 
-    // Load and validate textures
-    std::unique_ptr<TextureObject> background = std::make_unique<TextureObject>(BACKGROUND_IMAGE_OBJ, generalScreen.width, generalScreen.height, 0, 0);
-    if (!background->loadTexture(IMAGES_PATH + BACKGROUND_IMAGE_FILE)) return -1;
+    std::vector<std::unique_ptr<TextureObject>> textureObjects;
 
-    std::unique_ptr<TextureObject> soundON = std::make_unique<TextureObject>(SOUND_ON_OBJ, 50, 50, grid[122][1].x, grid[122][1].y);
-    if (!soundON->loadTexture(ICONS_PATH + SOUND_ON_FILE)) return -1;
-
-    std::unique_ptr<TextureObject> soundOFF = std::make_unique<TextureObject>(SOUND_OFF_OBJ, 50, 50, grid[122][1].x, grid[122][1].y);
-    if (!soundOFF->loadTexture(ICONS_PATH + SOUND_OFF_FILE)) return -1;
-
-
-    std::unique_ptr<TextureObject> movingON = std::make_unique<TextureObject>(CPP100FILL_IMAGE_OBJ, 50, 50, grid[122][8].x, grid[122][8].y);
-    if (!movingON->loadTexture(ICONS_PATH + CPP100FILL_IMAGE_FILE)) return -1;
-
-    std::unique_ptr<TextureObject> movingOFF = std::make_unique<TextureObject>(X100_IMAGE_OBJ, 50, 50, grid[122][8].x, grid[122][8].y);
-    if (!movingOFF->loadTexture(ICONS_PATH + X100_IMAGE_FILE)) return -1;
-
-    std::unique_ptr<TextureObject> downArrow = std::make_unique<TextureObject>(DOWN_ARROW_IMAGE_OBJ, 64, 64, general4BlocksX.blockX2 - 200, generalScreen.height - generalScreen.bottomMargin - 50);
-    if (!downArrow->loadTexture(ICONS_PATH + DOWN_ARROW_IMAGE_FILE )) return -1;
-
-    std::unique_ptr<TextureObject> upArrow = std::make_unique<TextureObject>(UP_ARROW_IMAGE_OBJ, 64, 64, general4BlocksX.blockX2 -250, generalScreen.height - generalScreen.bottomMargin - 50);
-    if (!upArrow->loadTexture(ICONS_PATH + UP_ARROW_IMAGE_FILE )) return -1;
+    if (loadTextures(textureObjects, textureInfos) == -1) {
+        std::cerr << "Error: Failed to load textures!" << std::endl;
+        return -1;
+    }
 
     // Initialize menu and hierarchical tree
     auto mainMenu = std::make_shared<TextObject>(
@@ -2147,7 +2200,6 @@ uint16_t initAndStartMainWindowLoop() {
     auto selectedMenu = mainMenu;
     auto selectedMenuChildren = selectedMenu->getChildren();
     int8_t types = 0;
-    //int8_t last_types = 0;
 
     Stack last_types;
 
@@ -2218,8 +2270,8 @@ uint16_t initAndStartMainWindowLoop() {
 
                 case sf::Event::MouseButtonPressed:
                     if (event.mouseButton.button == sf::Mouse::Left) {
-                        handleSoundButton(soundON->getTextureSprite(), soundON->getTexture(), soundOFF->getTexture(), *music, isMusicPlaying, window);
-                        handleMovingButton(movingON->getTextureSprite(), movingON->getTexture(), movingOFF->getTexture(), window, movementThread, movingObjectPointer, grid, iconCpp150);
+                        handleSoundButton(getTextureObjectByName(textureObjects, SOUND_ON_OBJ)->getTextureSprite(), getTextureObjectByName(textureObjects, SOUND_ON_OBJ)->getTexture(), getTextureObjectByName(textureObjects, SOUND_OFF_OBJ)->getTexture(), *music, isMusicPlaying, window);
+                        handleMovingButton(getTextureObjectByName(textureObjects, CPP100FILL_IMAGE_OBJ)->getTextureSprite(), getTextureObjectByName(textureObjects, CPP100FILL_IMAGE_OBJ)->getTexture(), getTextureObjectByName(textureObjects, X100_IMAGE_OBJ)->getTexture(), window, movementThread, movingObjectPointer, grid, iconCpp150);
                         needsRedraw = true;
                     }
                     break;
@@ -2232,15 +2284,15 @@ uint16_t initAndStartMainWindowLoop() {
         // Redraw only if necessary
         if (needsRedraw) {
             window.clear();
-            background->draw(window);
+            getTextureObjectByName(textureObjects, BACKGROUND_IMAGE_OBJ)->draw(window);
             if (!movementThread.isPaused()){
                 drawObjects(movingObjectPointer, window);
             }
-            soundON->draw(window);
-            movingON->draw(window);
+            getTextureObjectByName(textureObjects, SOUND_ON_OBJ)->draw(window);
+            getTextureObjectByName(textureObjects, CPP100FILL_IMAGE_OBJ)->draw(window);
             drawMenuFromRoot(selectedMenu, generalScreen, window, findFirstArrayWithNumber(overflow_list, types));
             Arrow temp = findArraySurroundingRelation(overflow_list, types);
-            drawArrowsBasedOnRelation(temp, window, upArrow, downArrow);
+            drawArrowsBasedOnRelation(temp, window, getTextureObjectByName(textureObjects, UP_ARROW_IMAGE_OBJ), getTextureObjectByName(textureObjects, DOWN_ARROW_IMAGE_OBJ));
             window.display();
             needsRedraw = false;
         } else {
