@@ -17,6 +17,7 @@
 #include <condition_variable>
 #include <functional>
 
+
 // Paths
 const std::string AUDIOS_PATH = "audios/";
 const std::string IMAGES_PATH = "images/";
@@ -76,6 +77,7 @@ const int EXTRA_MARGING = 5;
 const int MAX_VELOCITY = EXTRA_MARGING - 1;  //This in order to avoid a segmentation fault, when the object meets the margin
 const float OVERLAP_PERCENTAGE = 0.8; // 0.5 - 1  1 -> no overlap
 const int MIN_SIZE = 50;
+const int MAX_MOVING_OBJS = 10;
 
 //For matrix
 
@@ -104,6 +106,82 @@ struct Block {
     Block(int _x, int _y) : x(_x), y(_y) {}
 };
 
+// Validation
+
+const std::string LINE_TEXT_ERROR = "Validation LineTextParams vector failed in function: '";
+
+///////////////TOOLS//////////////////////////
+
+// Función para verificar un solo campo
+template <typename U>
+bool verifyField(const U& field) {
+    if constexpr (std::is_integral_v<std::decay_t<U>>) {
+        return field > 0;
+    } else if constexpr (std::is_floating_point_v<std::decay_t<U>>) {
+        return field > 0.0;
+    } else if constexpr (std::is_pointer_v<std::decay_t<U>>) {
+        return field != nullptr;
+    } else {
+        // Otros tipos pueden requerir validaciones adicionales
+        return true;
+    }
+}
+
+// Plantilla para recorrer todos los miembros de una estructura
+template <typename T, typename MemberType>
+bool verifyStructMember(const T& s, MemberType T::*member) {
+    return verifyField(s.*member);
+}
+
+// Función genérica para recorrer todos los miembros
+template <typename T, typename... Members>
+bool verifyStructValues(const T& s, Members T::*... members) {
+    // Usamos un "fold expression" para aplicar la verificación a todos los miembros
+    return (... && verifyStructMember(s, members));  // Aplica la verificación para cada miembro
+}
+
+
+/**
+ * @brief Checks if a container is empty and throws an exception if it is.
+ * 
+ * @tparam Container The type of the container (e.g., std::vector, std::list, std::set).
+ * @param container The container to check.
+ * @param varName The name of the container variable as a string.
+ * @throws std::invalid_argument if the container is empty.
+ */
+template <typename Container>
+void validateNotEmpty(const Container& container, const std::string& varName, const std::string& funcName) {
+    if (container.empty()) {
+        throw std::invalid_argument("Validation failed in function \"" + funcName +
+                            "\": The container \"" + varName + "\" cannot be empty.");
+    }
+}
+
+// Macro to simplify calling the function with the variable name
+#define VALIDATE_NOT_EMPTY(container, funcName) validateNotEmpty(container, #container, funcName)
+
+/**
+ * @brief Checks if a value is below a specified limit and throws an exception if it is.
+ * 
+ * @tparam T The type of the value (e.g., int, float, double).
+ * @param value The value to check.
+ * @param limit The lower limit the value must meet or exceed.
+ * @param valueName The name of the variable being checked.
+ * @param funcName The name of the function where the check is performed.
+ * @throws std::invalid_argument if the value is below the specified limit.
+ */
+template <typename T>
+void validateNotBelowLimit(const T& value, const T& limit, const std::string& valueName, const std::string& limitName, const std::string& funcName) {
+    if (value < limit) {
+    throw std::invalid_argument("Validation failed in function \"" + funcName +
+                                "\": The parameter \"" + valueName + "\" -> " + std::to_string(value) +
+                                " cannot be less than \"" + limitName  + "\" -> " + std::to_string(limit) + ".");
+    }
+}
+
+// Macro to simplify calling the function with the variable name
+#define VALIDATE_NOT_BELOW_LIMIT(value, limit) validateNotBelowLimit(value, limit, #value, #limit, __func__)
+
 /**
  * @brief Creates and initializes a 2D grid (matrix) of blocks with dimensions based on the given width, height, and block size.
  * 
@@ -114,6 +192,16 @@ struct Block {
  *         The grid is organized in a (columns, rows) layout.
  */
 std::vector<std::vector<Block>> createGrid(int width, int height, int blockSize) {
+
+    // Validate input: blockSize shouldn't be zero nor less
+    VALIDATE_NOT_BELOW_LIMIT(blockSize, 1);
+
+    // Validate input: width shouldn't be less than blockSize * 2
+    VALIDATE_NOT_BELOW_LIMIT(width, blockSize * 2);
+
+    // Validate input: height shouldn't be less than blockSize * 2
+    VALIDATE_NOT_BELOW_LIMIT(height, blockSize * 2);
+
     // Calculate the number of columns and rows based on the width, height, and block size
     int cols = width / blockSize;
     int rows = height / blockSize;
@@ -133,7 +221,6 @@ std::vector<std::vector<Block>> createGrid(int width, int height, int blockSize)
     // Return the fully initialized grid
     return grid;
 }
-
 
 
 // Definitions for Screen and Texture Parameters
@@ -296,6 +383,91 @@ std::vector<LineTextParams> generalTopics = {
 };
 
 
+// Macro para obtener el nombre del vector
+#define VALIDATE_VECTOR(vector, funcName) validateLineTextParams(vector, #vector, funcName)
+
+/**
+ * @brief Validates a vector of LineTextParams structures for correctness.
+ * 
+ * This function ensures that all fields in each `LineTextParams` structure
+ * in the vector meet expected criteria (e.g., positive values, non-empty strings, valid ranges).
+ * 
+ * @param paramsList A vector of `LineTextParams` structures to validate.
+ * @param vectorName The name of the vector for contextual error messages.
+ * @param funcName The name of the function for contextual error messages.
+ * @throws std::invalid_argument if any validation fails.
+ */
+void validateLineTextParams(const std::vector<LineTextParams>& paramsList, 
+                            const std::string& vectorName, 
+                            const std::string& funcName = "validateLineTextParams") {
+    
+    for (size_t idx = 0; idx < paramsList.size(); ++idx) {
+        const auto& params = paramsList[idx];
+        std::string errorMessage = funcName + " -> ( Vector: " + vectorName + ", index: " + std::to_string(idx + 1) + ")";
+
+        // Validate non-empty string fields
+        if (params.name.empty()) {
+            throw std::invalid_argument(LINE_TEXT_ERROR + errorMessage +
+                                        "': 'name' field must not be empty.");
+        }
+        if (params.text.empty()) {
+            throw std::invalid_argument(LINE_TEXT_ERROR + errorMessage +
+                                        "': 'text' field must not be empty.");
+        }
+        if (params.fontPath.empty()) {
+            throw std::invalid_argument(LINE_TEXT_ERROR + errorMessage +
+                                        "': 'fontPath' field must not be empty.");
+        }
+
+        // Validate positive numeric fields
+        if (params.x_position < 0 || params.y_position < 0) {
+            throw std::invalid_argument(LINE_TEXT_ERROR + errorMessage +
+                                        "': x_position and y_position must not be negative.");
+        }
+
+        if (params.fontSize <= 0) {
+            throw std::invalid_argument(LINE_TEXT_ERROR + errorMessage +
+                                        "': fontSize must be greater than 0.");
+        }
+
+        // Validate color array values (must be in the range [0, 255])
+        for (size_t i = 0; i < params.color.size(); ++i) {
+            if (params.color[i] > 255 || params.color[i] < 0) {
+                throw std::invalid_argument(LINE_TEXT_ERROR + errorMessage +
+                                            "': color[" + std::to_string(i) + "] must be in the range [0, 255].");
+            }
+        }
+
+        // Validate depth (must be non-negative)
+        if (params.depth < 0) {
+            throw std::invalid_argument(LINE_TEXT_ERROR + errorMessage +
+                                        "': depth must be non-negative.");
+        }
+
+        // Validate subtopics recursively if present
+        if (params.subtopics.has_value()) {
+            VALIDATE_VECTOR(params.subtopics.value(), errorMessage);
+        }
+    }
+}
+
+void verifyScreenParams(const ScreenParams& screenParams) {
+    // Validate that the struct values are not null or less than zero
+    if (!verifyStructValues(screenParams, &ScreenParams::width, &ScreenParams::height,
+                                      &ScreenParams::leftMargin, &ScreenParams::rightMargin,
+                                      &ScreenParams::topMargin, &ScreenParams::bottomMargin)) {
+        throw std::invalid_argument("Error: in " + std::string(__func__) + ", the 'screenParams' struct contains invalid values");
+    }
+
+    // Ensure all margins are at least 1/8 of the width and height
+    if (screenParams.leftMargin > screenParams.width / 6 ||
+        screenParams.rightMargin > screenParams.width / 6 ||
+        screenParams.topMargin > screenParams.height / 6 ||
+        screenParams.bottomMargin > screenParams.height / 6) {
+        throw std::invalid_argument("Error: in " + std::string(__func__) + ", margins must be at least 1/6 of the width and height");
+    }
+}
+
 /**
  * @brief Recursively enumerates topics and their subtopics, adding a numbered format based on depth.
  * 
@@ -305,6 +477,12 @@ std::vector<LineTextParams> generalTopics = {
  *              Determines the indentation of the numbering.
  */
 void enumerateTopics(std::vector<LineTextParams>& topics, int depth = 0) {
+
+    // Validate input: topics vector should not be empty
+    VALIDATE_NOT_EMPTY(topics, std::string(__func__));
+    // Validate input: depth should not be negative
+    VALIDATE_NOT_BELOW_LIMIT(depth, 0);
+
     // Iterate through the list of topics
     for (size_t i = 0; i < topics.size(); ++i) {
         // Create a string stream to format the numbered text
@@ -336,6 +514,10 @@ void enumerateTopics(std::vector<LineTextParams>& topics, int depth = 0) {
  * @throws std::runtime_error If a topic exceeds the maximum width, an error is thrown with a descriptive message.
  */
 void filterTopicsBySize(std::vector<LineTextParams>& topics, const ScreenParams& screenParams) {
+
+    // Validate input: topics vector should not be empty
+    VALIDATE_NOT_EMPTY(topics, std::string(__func__));
+
     // Calculate the maximum width available for a topic on the screen
     const uint16_t maxWidth = screenParams.width - general4BlocksX.blockX2 - screenParams.leftMargin;
 
@@ -365,6 +547,7 @@ void filterTopicsBySize(std::vector<LineTextParams>& topics, const ScreenParams&
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// TOOLS
 
 /**
  * @class Stack
@@ -429,7 +612,7 @@ public:
 };
 
 
-
+//TOOLS
 /**
  * @class ThreadController
  * @brief A class that controls a thread, allowing it to be started, paused, resumed, and stopped.
@@ -1100,11 +1283,10 @@ int getMaxDepth(const std::shared_ptr<TextObject>& node) {
     for (const auto& child : node->getChildren()) {
         maxDepth = std::max(maxDepth, getMaxDepth(child));
     }
-
     return maxDepth + 1; // Add 1 to the current node's depth
 }
 
-
+//GGG
 /**
  * @brief Finds nested subtopics based on the provided indices.
  * 
@@ -1127,8 +1309,15 @@ int getMaxDepth(const std::shared_ptr<TextObject>& node) {
  */
 std::vector<LineTextParams> findNestedSubtopics(
     const std::vector<LineTextParams>& generalTopics,
-    const std::vector<int>& indices
+    const std::vector<uint16_t>& indices
 ) {
+
+    // Validate input: generalTopics vector should not be empty
+    VALIDATE_NOT_EMPTY(generalTopics, std::string(__func__));
+
+    // Validate input: indices vector should not be empty
+    VALIDATE_NOT_EMPTY(indices, std::string(__func__));
+
     const std::vector<LineTextParams>* currentLevel = &generalTopics;
 
     // Traverse through each level of subtopics using the indices
@@ -1168,21 +1357,28 @@ std::vector<LineTextParams> findNestedSubtopics(
  * 
  * @param objects A vector of pointers to `TextureObject` instances representing
  *                the objects to check against.
- * @param x The x-coordinate of the point to check.
- * @param y The y-coordinate of the point to check.
- * @param minDistance The minimum required distance between the point and each object.
+ * @param x The x-coordinate of the point to check (must be positive).
+ * @param y The y-coordinate of the point to check (must be positive).
+ * @param minDistance The minimum required distance between the point and each object (must be positive).
  * 
  * @return `true` if the point is at least `minDistance` away from all objects, 
  *         otherwise `false` if any object is too close.
+ * 
+ * @throws std::invalid_argument if `x`, `y`, or `minDistance` is not positive.
  */
 bool isFarEnough(const std::vector<TextureObject*>& objects, float x, float y, float minDistance) {
+    // Validate that x, y, and minDistance are positive
+    if (x <= 0 || y <= 0 || minDistance <= 0) {
+        throw std::invalid_argument("x, y, and minDistance must be positive values.");
+    }
+
     // Iterate over each object in the list
     for (const auto& obj : objects) {
         // Calculate the difference in x and y coordinates between the point and the object
         float dx = obj->getXPosition() - x;
         float dy = obj->getYPosition() - y;
 
-        // Calculate the Euclidean distance between the point and the object
+        // Calculate the Euclidean distance between the point and the object (Pitagoras)
         if (std::sqrt(dx * dx + dy * dy) < minDistance) {
             // Return false if the distance is smaller than the minimum required
             return false;
@@ -1194,6 +1390,7 @@ bool isFarEnough(const std::vector<TextureObject*>& objects, float x, float y, f
 }
 
 
+
 /**
  * @brief Creates a list of moving objects with random positions.
  * 
@@ -1203,7 +1400,7 @@ bool isFarEnough(const std::vector<TextureObject*>& objects, float x, float y, f
  * specified range, and the object positions are checked to ensure they do not violate 
  * the minimum distance requirement from other objects.
  * 
- * @param n The number of moving objects to create. Must be between 1 and 10.
+ * @param n The number of moving objects to create. Must be between 0 and 10.
  * @param grid A 2D grid represented as a vector of vectors of `Block` objects, used 
  *             to define the area in which the objects can be placed.
  * @param object The `StructTextureObject` containing the properties of the object to 
@@ -1219,13 +1416,13 @@ std::vector<TextureObject*> createMovingObjects(int n, std::vector<std::vector<B
     // Check if the number of objects is valid
     if (n <= 0) return {};  // Return an empty vector if n is less than or equal to 0
 
-    if (n > 10) {
-        throw std::runtime_error("Max num of moving objects is 10. Got: " + std::to_string(n));
+    if (n > MAX_MOVING_OBJS) {
+        throw std::invalid_argument("Max num of moving objects is " + std::to_string(MAX_MOVING_OBJS) + ". Got: " + std::to_string(n));
     }
 
     // Ensure the object size meets the minimum size requirement
     if (MIN_SIZE * 2 > object.width) {
-        throw std::runtime_error(
+        throw std::invalid_argument(
             "The size of the square object must be at least double the minimum size. "
             "Got: " + std::to_string(object.width) + ", required: " + std::to_string(MIN_SIZE * 2));
     }
@@ -1440,7 +1637,7 @@ std::shared_ptr<sf::Music> loadAndPlayMusic(std::string music_path) {
     return music;
 }
 
-
+//TOOLS
 /**
  * @brief Finds a number in a list of integer arrays.
  * 
@@ -1800,19 +1997,23 @@ void createTree(
  * @param obj2 The second `TextureObject` to check for collision.
  * @return `true` if the objects are colliding, `false` otherwise.
  */
-bool isColliding(const TextureObject& obj1, const TextureObject& obj2) {
+bool isColliding(const TextureObject* obj1, const TextureObject* obj2) {
+    // Validate that both objects exist
+    if (obj1 == nullptr || obj2 == nullptr) {
+        return false; // If either object is null, they cannot collide
+    }
+
     // Check if the bounding boxes of obj1 and obj2 overlap.
-    // If any of these conditions are true, the objects are NOT colliding:
+    // The conditions check for cases where the bounding boxes are NOT colliding:
     // 1. The right side of obj1 is to the left of the left side of obj2.
     // 2. The left side of obj1 is to the right of the right side of obj2.
     // 3. The bottom side of obj1 is above the top side of obj2.
     // 4. The top side of obj1 is below the bottom side of obj2.
-    return !(obj1.getXPosition() + obj1.getWidth() * OVERLAP_PERCENTAGE < obj2.getXPosition() || 
-             obj1.getXPosition() > obj2.getXPosition() + obj2.getWidth() * OVERLAP_PERCENTAGE || 
-             obj1.getYPosition() + obj1.getHeight() * OVERLAP_PERCENTAGE < obj2.getYPosition() || 
-             obj1.getYPosition() > obj2.getYPosition() + obj2.getHeight() * OVERLAP_PERCENTAGE);
+    return !(obj1->getXPosition() + obj1->getWidth() * OVERLAP_PERCENTAGE < obj2->getXPosition() || 
+             obj1->getXPosition() > obj2->getXPosition() + obj2->getWidth() * OVERLAP_PERCENTAGE || 
+             obj1->getYPosition() + obj1->getHeight() * OVERLAP_PERCENTAGE < obj2->getYPosition() || 
+             obj1->getYPosition() > obj2->getYPosition() + obj2->getHeight() * OVERLAP_PERCENTAGE);
 }
-
 
 /**
  * @brief Moves multiple `TextureObject` instances within a window, managing velocity, boundary collisions, and inter-object collisions.
@@ -1830,7 +2031,10 @@ void moveObjects(std::vector<TextureObject*>& objects,
                  const sf::RenderWindow& window, 
                  std::atomic<bool>& needsRedraw, 
                  std::atomic<bool>& isPaused) {
-    try {
+    try { //Using try logic because this isn't critical
+        // Validate input: objects vector should not be empty
+        VALIDATE_NOT_EMPTY(objects, std::string(__func__));
+
         while (!isPaused.load() && window.isOpen()) {
             // Pause handling: wait if the movement is paused
             if (isPaused.load()) {
@@ -1869,7 +2073,7 @@ void moveObjects(std::vector<TextureObject*>& objects,
                 for (size_t j = i + 1; j < objects.size(); ++j) {
                     auto* otherObj = objects[j];
 
-                    if (isColliding(*obj, *otherObj)) {
+                    if (isColliding(obj, otherObj)) {
                         // Reverse velocities for both objects upon collision
                         obj->setVelocityX(-velocity_x);
                         obj->setVelocityY(-velocity_y);
@@ -1897,6 +2101,9 @@ uint16_t initAndStartMainWindowLoop() {
     // Initialize the grid once
     auto grid = createGrid(SCREEN_WIDTH, SCREEN_HEIGHT, BLOCK_SIZE);
 
+    verifyScreenParams(generalScreen);
+    VALIDATE_VECTOR(generalTopics, std::string(__func__));
+
     filterTopicsBySize(generalTopics, generalScreen);
     enumerateTopics(generalTopics);
 
@@ -1920,7 +2127,6 @@ uint16_t initAndStartMainWindowLoop() {
     std::unique_ptr<TextureObject> movingOFF = std::make_unique<TextureObject>(X100_IMAGE_OBJ, 50, 50, grid[122][8].x, grid[122][8].y);
     if (!movingOFF->loadTexture(ICONS_PATH + X100_IMAGE_FILE)) return -1;
 
-
     std::unique_ptr<TextureObject> downArrow = std::make_unique<TextureObject>(DOWN_ARROW_IMAGE_OBJ, 64, 64, general4BlocksX.blockX2 - 200, generalScreen.height - generalScreen.bottomMargin - 50);
     if (!downArrow->loadTexture(ICONS_PATH + DOWN_ARROW_IMAGE_FILE )) return -1;
 
@@ -1934,7 +2140,7 @@ uint16_t initAndStartMainWindowLoop() {
     );
     createTree(mainMenu, generalTopics, 1);
 
-    std::vector<int> indices;
+    std::vector<uint16_t> indices;
     std::shared_ptr<sf::Music> music = loadAndPlayMusic(MUSIC_FILE);
     std::atomic<bool> isMusicPlaying = true;
 
