@@ -16,51 +16,9 @@
 #include <stdexcept> // For std::runtime_error
 #include <condition_variable>
 #include <functional>
+#include "constants/constants.h" 
 
 
-// Paths
-const std::string AUDIOS_PATH = "audios/";
-const std::string IMAGES_PATH = "images/";
-const std::string FONTS_PATH = "fonts/";
-const std::string ICONS_PATH = "images/icons/";
-
-// Fonts
-const std::string RETRO_FONTH_PATH = FONTS_PATH + "retro_computer.ttf";
-
-// Audio
-const std::string MUSIC_FILE = "MASTER_BOOT_RECORD_INTERRUPT_REQUEST.mp3";
-
-// Window Configuration
-const std::string WINDOW_TITLE = "C++ Bible by JALL";
-
-// Background Images
-const std::string BACKGROUND_IMAGE_OBJ = "BackgroundImage";
-const std::string BACKGROUND_IMAGE_FILE = "realCRT.jpeg";
-
-// Sound Icons
-const std::string SOUND_ON_OBJ = "soundON";
-const std::string SOUND_ON_FILE = "soundON.png";
-const std::string SOUND_OFF_OBJ = "soundOFF";
-const std::string SOUND_OFF_FILE = "soundOFF.png";
-
-// Miscellaneous Icons
-const std::string CPP150_IMAGE_OBJ = "cpp150";
-const std::string CPP150_IMAGE_FILE = "cpp150.png";
-
-const std::string CPP100FILL_IMAGE_OBJ = "cpp100filled";
-const std::string CPP100FILL_IMAGE_FILE = "cpp100filled.png";
-
-const std::string X100_IMAGE_OBJ = "Xicon100";
-const std::string X100_IMAGE_FILE = "Xicon100.png";
-
-const std::string UP_ARROW_IMAGE_OBJ = "upArrow";
-const std::string UP_ARROW_IMAGE_FILE = "upArrow.png";
-
-const std::string DOWN_ARROW_IMAGE_OBJ = "downArrow";
-const std::string DOWN_ARROW_IMAGE_FILE = "downArrow.png";
-
-// Colors
-constexpr std::array<uint16_t, 3> CRTGreen{0, 255, 128};
 
 // Arrows icons control
 enum class Arrow {
@@ -71,31 +29,7 @@ enum class Arrow {
         Error = -1
 };
 
-// For moving object
 
-const int EXTRA_MARGING = 5;
-const int MAX_VELOCITY = EXTRA_MARGING - 1;  //This in order to avoid a segmentation fault, when the object meets the margin
-const float OVERLAP_PERCENTAGE = 0.8; // 0.5 - 1  1 -> no overlap
-const int MIN_SIZE = 50;
-const int MAX_MOVING_OBJS = 10;
-
-//For matrix
-
-const int SCREEN_WIDTH = 1920;
-const int SCREEN_HEIGHT = 1080;
-const int BLOCK_SIZE = 15;
-
-//Font sizes
-
-const int NORMAL_FONT = 30;
-const float FONT_RESIZE = 1.27;
-const int BIG_FONT = int(NORMAL_FONT * FONT_RESIZE);
-const int MENU_FONT_SIZE = 40;
-const int LINE_SPACING = 40;
-
-// Calculate the number of rows and columns
-const int rows = SCREEN_HEIGHT / BLOCK_SIZE;
-const int cols = SCREEN_WIDTH / BLOCK_SIZE;
 
 // Structure to represent a block of 30x30 pixels
 struct Block {
@@ -106,11 +40,224 @@ struct Block {
     Block(uint16_t _x, uint16_t _y) : x(_x), y(_y) {}
 };
 
-// Validation
+/**
+ * @brief Creates and initializes a 2D grid (matrix) of blocks with dimensions based on the given width, height, and block size.
+ * 
+ * @param width The total width of the grid area in pixels.
+ * @param height The total height of the grid area in pixels.
+ * @param blockSize The size (both width and height) of each block in pixels.
+ * @return std::vector<std::vector<Block>> A 2D vector representing the grid, where each element is a Block.
+ *         The grid is organized in a (columns, rows) layout.
+ */
+std::vector<std::vector<Block>> createGrid(int width, int height, int blockSize) {
 
-const std::string LINE_TEXT_ERROR = "Validation LineTextParams vector failed in function: '";
+    /*
+    // Validate input: blockSize shouldn't be zero nor less
+    VALIDATE_NOT_BELOW_LIMIT(blockSize, 1);
 
-///////////////TOOLS//////////////////////////
+    // Validate input: width shouldn't be less than blockSize * 2
+    VALIDATE_NOT_BELOW_LIMIT(width, blockSize * 2);
+
+    // Validate input: height shouldn't be less than blockSize * 2
+    VALIDATE_NOT_BELOW_LIMIT(height, blockSize * 2);
+
+    */
+
+    // Calculate the number of columns and rows based on the width, height, and block size
+    uint16_t cols = width / blockSize;
+    uint16_t rows = height / blockSize;
+
+    // Create a 2D matrix with 'cols' columns, each initially empty
+    std::vector<std::vector<Block>> grid(cols, std::vector<Block>());
+
+    // Populate the grid with blocks
+    // Iterate over columns (outer loop) and rows (inner loop)
+    for (uint16_t j = 0; j < cols; ++j) {
+        for (uint16_t i = 0; i < rows; ++i) {
+            // Add a new Block at the calculated position (j * blockSize, i * blockSize)
+            grid[j].emplace_back(j * blockSize, i * blockSize);
+        }
+    }
+
+    // Return the fully initialized grid
+    return grid;
+}
+
+auto grid = createGrid(SCREEN_WIDTH, SCREEN_HEIGHT, BLOCK_SIZE);
+
+// Definitions for Screen and Texture Parameters
+
+// Texture Object Definition
+struct StructTextureObject {
+    std::string name;
+    std::string path;
+    uint16_t width;
+    uint16_t height;
+    uint16_t x_position;
+    uint16_t y_position;
+    float velocity_x;
+    float velocity_y;
+};
+
+
+// Screen Parameters Definition
+struct ScreenParams {
+    uint16_t width;
+    uint16_t height;
+    uint16_t leftMargin;
+    uint16_t rightMargin;
+    uint16_t topMargin;
+    uint16_t bottomMargin;
+};
+
+// Generalscreen Initialization
+ScreenParams generalScreen = {SCREEN_WIDTH, SCREEN_HEIGHT, 50, 50, 50, 50};
+
+// Screen Blocks Definition
+struct ScreenBlocks_X {
+    uint16_t blockX1;
+    uint16_t blockX2;
+    uint16_t blockX3;
+    uint16_t blockX4;
+};
+
+// Calculate Block Size and Initialize Blocks
+uint16_t FourblocksSize = (generalScreen.width - (generalScreen.leftMargin + generalScreen.rightMargin)) / 4;
+
+ScreenBlocks_X general4BlocksX = {
+    static_cast<uint16_t>(0), 
+    static_cast<uint16_t>(FourblocksSize),
+    static_cast<uint16_t>(FourblocksSize * 2),
+    static_cast<uint16_t>(FourblocksSize * 3),
+};
+
+///////////////INITS//////////////////////////////////////////
+
+std::vector<StructTextureObject> textureInfos = {
+    {BACKGROUND_IMAGE_OBJ, IMAGES_PATH + BACKGROUND_IMAGE_FILE, generalScreen.width, generalScreen.height, 0, 0},
+    {SOUND_ON_OBJ, ICONS_PATH + SOUND_ON_FILE, 50, 50, grid[122][1].x, grid[122][1].y},
+    {SOUND_OFF_OBJ, ICONS_PATH + SOUND_OFF_FILE, 50, 50, grid[122][1].x, grid[122][1].y},
+    {CPP100FILL_IMAGE_OBJ, ICONS_PATH + CPP100FILL_IMAGE_FILE, 50, 50, grid[122][8].x, grid[122][8].y},
+    {X100_IMAGE_OBJ, ICONS_PATH + X100_IMAGE_FILE, 50, 50, grid[122][8].x, grid[122][8].y},
+    {DOWN_ARROW_IMAGE_OBJ, ICONS_PATH + DOWN_ARROW_IMAGE_FILE, 64, 64, static_cast<uint16_t>(general4BlocksX.blockX2 - 200), static_cast<uint16_t>(generalScreen.height - generalScreen.bottomMargin - 50)},
+    {UP_ARROW_IMAGE_OBJ, ICONS_PATH + UP_ARROW_IMAGE_FILE, 64, 64, static_cast<uint16_t>(general4BlocksX.blockX2 - 250), static_cast<uint16_t>(generalScreen.height - generalScreen.bottomMargin - 50)},
+};
+
+// Text Line Parameters Definition
+struct LineTextParams {
+    std::string name;
+    uint16_t x_position;
+    uint16_t y_position;
+    std::array<uint16_t, 3> color;
+    std::string text;
+    std::string fontPath;
+    uint16_t fontSize;
+    bool centered;
+    std::optional<std::vector<LineTextParams>> subtopics;
+    int depth;
+};
+
+// Cpp icon Initialization
+StructTextureObject iconCpp150 = {"iconCpp150", ICONS_PATH + CPP150_IMAGE_FILE, 150, 150, 0, 0, -1.0f, -2.0f};
+
+
+std::vector<LineTextParams> TopicFloatingpointTypes = {
+    {"Description", 0, 0, CRTGreen, "Description", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"Example", 0, 0, CRTGreen, "Example", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"Practice", 0, 0, CRTGreen, "Practice", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+};
+
+std::vector<LineTextParams> TopicIntegralTypes = {
+    {"1.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"2.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"3.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+
+    {"4.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"5.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"6.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+
+    {"7.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"8.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"9.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+
+    {"10.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"11.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"12.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+
+    {"13.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"14.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"15.Practice", 0, 0, CRTGreen, "GGPractice gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+
+    {"16.Description", 0, 0, CRTGreen, "GGDescription gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"17.Example", 0, 0, CRTGreen, "GGExample gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"18.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+
+    {"19.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"20.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    {"21.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 3},
+    
+};
+
+
+std::vector<LineTextParams> introductionTopics = {
+    {"Topic1-1", 0, 0, CRTGreen, "History and Overview of C++", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 2},
+    {"Topic1-2", 0, 0, CRTGreen, "Setting Up the Development Environment", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 2},
+    {"Topic1-3", 0, 0, CRTGreen, "Basic Syntax and Structure", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 2},
+};
+
+
+std::vector<LineTextParams> dataTypesTopics = {
+    {"Topic2-1", 0, 0, CRTGreen, "Integral Types", RETRO_FONT_PATH, NORMAL_FONT, false, TopicIntegralTypes, 2},
+    {"Topic2-2", 0, 0, CRTGreen, "Floating-point Types", RETRO_FONT_PATH, NORMAL_FONT, false, TopicFloatingpointTypes, 2},
+    {"Topic2-3", 0, 0, CRTGreen, "Character Types", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 2},
+    {"Topic2-4", 0, 0, CRTGreen, "Boolean Type", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 2},
+    {"Topic2-5", 0, 0, CRTGreen, "Void Type", RETRO_FONT_PATH, NORMAL_FONT, false, std::nullopt, 2},
+};
+
+LineTextParams mainMenuParams = {"mainMenu", general4BlocksX.blockX3, generalScreen.topMargin, CRTGreen, "MAIN MENU", RETRO_FONT_PATH, MENU_FONT_SIZE, true};
+
+std::vector<LineTextParams> generalTopics = {
+    {"Topic1", 0, 0, CRTGreen, "Introduction to C++ Programming", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic2", 0, 0, CRTGreen, "Data Types in C++", RETRO_FONT_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
+    {"Topic3", 0, 0, CRTGreen, "Control Structures in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic4", 0, 0, CRTGreen, "Functions and Parameters in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic5", 0, 0, CRTGreen, "Object-Oriented Programming Concepts", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic6", 0, 0, CRTGreen, "Memory Management", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic7", 0, 0, CRTGreen, "Standard Template Library (STL)", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic8", 0, 0, CRTGreen, "File Handling in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic9", 0, 0, CRTGreen, "Error Handling and Debugging", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic10", 0, 0, CRTGreen, "Advanced Topics in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+
+    {"Topic11", 0, 0, CRTGreen, "GGG Introduction to C++ Programming", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic12", 0, 0, CRTGreen, "GGG Data Types in C++", RETRO_FONT_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
+    {"Topic13", 0, 0, CRTGreen, "GGG Control Structures in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic14", 0, 0, CRTGreen, "GGG Functions and Parameters in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic15", 0, 0, CRTGreen, "GGGG Object-Oriented Programming Concepts", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic16", 0, 0, CRTGreen, "GGG Memory Management", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic17", 0, 0, CRTGreen, "GGG Standard Template Library (STL)", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic18", 0, 0, CRTGreen, "GGG File Handling in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic19", 0, 0, CRTGreen, "GGG Error Handling and Debugging", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic20", 0, 0, CRTGreen, "GGG Advanced Topics in C++", RETRO_FONT_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
+
+
+    {"Topic11", 0, 0, CRTGreen, "GGG Introduction to C++ Programming", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic12", 0, 0, CRTGreen, "GGG Data Types in C++", RETRO_FONT_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
+    {"Topic13", 0, 0, CRTGreen, "GGG Control Structures in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic14", 0, 0, CRTGreen, "GGG Functions and Parameters in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic15", 0, 0, CRTGreen, "GGGG Object-Oriented Programming Concepts", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic16", 0, 0, CRTGreen, "GGG Memory Management", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic17", 0, 0, CRTGreen, "GGG Standard Template Library (STL)", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic18", 0, 0, CRTGreen, "GGG File Handling in C++", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic19", 0, 0, CRTGreen, "GGG Error Handling and Debugging", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic20", 0, 0, CRTGreen, "GGG Advanced Topics in C++", RETRO_FONT_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
+
+
+    {"Topic18", 0, 0, CRTGreen, "XXXXXXXXXXXXXXXXXXX", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic19", 0, 0, CRTGreen, "yyyyyyyyyyyyyyyyyyy", RETRO_FONT_PATH, NORMAL_FONT, false, introductionTopics, 1},
+    {"Topic20", 0, 0, CRTGreen, "fffffffffffffffff", RETRO_FONT_PATH, NORMAL_FONT, false, dataTypesTopics, 1}
+};
+
+///////////////TOOLS///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Función para verificar un solo campo
 template <typename U>
@@ -181,219 +328,6 @@ void validateNotBelowLimit(const T& value, const T& limit, const std::string& va
 
 // Macro to simplify calling the function with the variable name
 #define VALIDATE_NOT_BELOW_LIMIT(value, limit) validateNotBelowLimit(value, limit, #value, #limit, __func__)
-
-/**
- * @brief Creates and initializes a 2D grid (matrix) of blocks with dimensions based on the given width, height, and block size.
- * 
- * @param width The total width of the grid area in pixels.
- * @param height The total height of the grid area in pixels.
- * @param blockSize The size (both width and height) of each block in pixels.
- * @return std::vector<std::vector<Block>> A 2D vector representing the grid, where each element is a Block.
- *         The grid is organized in a (columns, rows) layout.
- */
-std::vector<std::vector<Block>> createGrid(int width, int height, int blockSize) {
-
-    // Validate input: blockSize shouldn't be zero nor less
-    VALIDATE_NOT_BELOW_LIMIT(blockSize, 1);
-
-    // Validate input: width shouldn't be less than blockSize * 2
-    VALIDATE_NOT_BELOW_LIMIT(width, blockSize * 2);
-
-    // Validate input: height shouldn't be less than blockSize * 2
-    VALIDATE_NOT_BELOW_LIMIT(height, blockSize * 2);
-
-    // Calculate the number of columns and rows based on the width, height, and block size
-    uint16_t cols = width / blockSize;
-    uint16_t rows = height / blockSize;
-
-    // Create a 2D matrix with 'cols' columns, each initially empty
-    std::vector<std::vector<Block>> grid(cols, std::vector<Block>());
-
-    // Populate the grid with blocks
-    // Iterate over columns (outer loop) and rows (inner loop)
-    for (uint16_t j = 0; j < cols; ++j) {
-        for (uint16_t i = 0; i < rows; ++i) {
-            // Add a new Block at the calculated position (j * blockSize, i * blockSize)
-            grid[j].emplace_back(j * blockSize, i * blockSize);
-        }
-    }
-
-    // Return the fully initialized grid
-    return grid;
-}
-
-auto grid = createGrid(SCREEN_WIDTH, SCREEN_HEIGHT, BLOCK_SIZE);
-
-
-// Definitions for Screen and Texture Parameters
-
-// Texture Object Definition
-struct StructTextureObject {
-    std::string name;
-    std::string path;
-    uint16_t width;
-    uint16_t height;
-    uint16_t x_position;
-    uint16_t y_position;
-    float velocity_x;
-    float velocity_y;
-};
-
-
-// Cpp icon Initialization
-StructTextureObject iconCpp150 = {"iconCpp150", ICONS_PATH + CPP150_IMAGE_FILE, 150, 150, 0, 0, -1.0f, -2.0f};
-
-// Screen Parameters Definition
-struct ScreenParams {
-    uint16_t width;
-    uint16_t height;
-    uint16_t leftMargin;
-    uint16_t rightMargin;
-    uint16_t topMargin;
-    uint16_t bottomMargin;
-};
-
-// Generalscreen Initialization
-ScreenParams generalScreen = {SCREEN_WIDTH, SCREEN_HEIGHT, 50, 50, 50, 50};
-
-// Screen Blocks Definition
-struct ScreenBlocks_X {
-    uint16_t blockX1;
-    uint16_t blockX2;
-    uint16_t blockX3;
-    uint16_t blockX4;
-};
-
-// Calculate Block Size and Initialize Blocks
-uint16_t FourblocksSize = (generalScreen.width - (generalScreen.leftMargin + generalScreen.rightMargin)) / 4;
-
-ScreenBlocks_X general4BlocksX = {
-    static_cast<uint16_t>(0), 
-    static_cast<uint16_t>(FourblocksSize),
-    static_cast<uint16_t>(FourblocksSize * 2),
-    static_cast<uint16_t>(FourblocksSize * 3),
-};
-
-std::vector<StructTextureObject> textureInfos = {
-    {BACKGROUND_IMAGE_OBJ, IMAGES_PATH + BACKGROUND_IMAGE_FILE, generalScreen.width, generalScreen.height, 0, 0},
-    {SOUND_ON_OBJ, ICONS_PATH + SOUND_ON_FILE, 50, 50, grid[122][1].x, grid[122][1].y},
-    {SOUND_OFF_OBJ, ICONS_PATH + SOUND_OFF_FILE, 50, 50, grid[122][1].x, grid[122][1].y},
-    {CPP100FILL_IMAGE_OBJ, ICONS_PATH + CPP100FILL_IMAGE_FILE, 50, 50, grid[122][8].x, grid[122][8].y},
-    {X100_IMAGE_OBJ, ICONS_PATH + X100_IMAGE_FILE, 50, 50, grid[122][8].x, grid[122][8].y},
-    {DOWN_ARROW_IMAGE_OBJ, ICONS_PATH + DOWN_ARROW_IMAGE_FILE, 64, 64, static_cast<uint16_t>(general4BlocksX.blockX2 - 200), static_cast<uint16_t>(generalScreen.height - generalScreen.bottomMargin - 50)},
-    {UP_ARROW_IMAGE_OBJ, ICONS_PATH + UP_ARROW_IMAGE_FILE, 64, 64, static_cast<uint16_t>(general4BlocksX.blockX2 - 250), static_cast<uint16_t>(generalScreen.height - generalScreen.bottomMargin - 50)},
-};
-
-// Text Line Parameters Definition
-struct LineTextParams {
-    std::string name;
-    uint16_t x_position;
-    uint16_t y_position;
-    std::array<uint16_t, 3> color;
-    std::string text;
-    std::string fontPath;
-    uint16_t fontSize;
-    bool centered;
-    std::optional<std::vector<LineTextParams>> subtopics;
-    int depth;
-};
-
-
-std::vector<LineTextParams> TopicFloatingpointTypes = {
-    {"Description", 0, 0, CRTGreen, "Description", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"Example", 0, 0, CRTGreen, "Example", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"Practice", 0, 0, CRTGreen, "Practice", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-};
-
-std::vector<LineTextParams> TopicIntegralTypes = {
-    {"1.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"2.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"3.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-
-    {"4.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"5.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"6.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-
-    {"7.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"8.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"9.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-
-    {"10.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"11.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"12.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-
-    {"13.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"14.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"15.Practice", 0, 0, CRTGreen, "GGPractice gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-
-    {"16.Description", 0, 0, CRTGreen, "GGDescription gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"17.Example", 0, 0, CRTGreen, "GGExample gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"18.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-
-    {"19.Description", 0, 0, CRTGreen, "Description gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"20.Example", 0, 0, CRTGreen, "Example gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    {"21.Practice", 0, 0, CRTGreen, "Practice gg", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 3},
-    
-};
-
-
-std::vector<LineTextParams> introductionTopics = {
-    {"Topic1-1", 0, 0, CRTGreen, "History and Overview of C++", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 2},
-    {"Topic1-2", 0, 0, CRTGreen, "Setting Up the Development Environment", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 2},
-    {"Topic1-3", 0, 0, CRTGreen, "Basic Syntax and Structure", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 2},
-};
-
-
-std::vector<LineTextParams> dataTypesTopics = {
-    {"Topic2-1", 0, 0, CRTGreen, "Integral Types", RETRO_FONTH_PATH, NORMAL_FONT, false, TopicIntegralTypes, 2},
-    {"Topic2-2", 0, 0, CRTGreen, "Floating-point Types", RETRO_FONTH_PATH, NORMAL_FONT, false, TopicFloatingpointTypes, 2},
-    {"Topic2-3", 0, 0, CRTGreen, "Character Types", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 2},
-    {"Topic2-4", 0, 0, CRTGreen, "Boolean Type", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 2},
-    {"Topic2-5", 0, 0, CRTGreen, "Void Type", RETRO_FONTH_PATH, NORMAL_FONT, false, std::nullopt, 2},
-};
-
-LineTextParams mainMenuParams = {"mainMenu", general4BlocksX.blockX3, generalScreen.topMargin, CRTGreen, "MAIN MENU", RETRO_FONTH_PATH, MENU_FONT_SIZE, true};
-
-std::vector<LineTextParams> generalTopics = {
-    {"Topic1", 0, 0, CRTGreen, "Introduction to C++ Programming", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic2", 0, 0, CRTGreen, "Data Types in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
-    {"Topic3", 0, 0, CRTGreen, "Control Structures in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic4", 0, 0, CRTGreen, "Functions and Parameters in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic5", 0, 0, CRTGreen, "Object-Oriented Programming Concepts", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic6", 0, 0, CRTGreen, "Memory Management", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic7", 0, 0, CRTGreen, "Standard Template Library (STL)", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic8", 0, 0, CRTGreen, "File Handling in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic9", 0, 0, CRTGreen, "Error Handling and Debugging", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic10", 0, 0, CRTGreen, "Advanced Topics in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-
-    {"Topic11", 0, 0, CRTGreen, "GGG Introduction to C++ Programming", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic12", 0, 0, CRTGreen, "GGG Data Types in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
-    {"Topic13", 0, 0, CRTGreen, "GGG Control Structures in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic14", 0, 0, CRTGreen, "GGG Functions and Parameters in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic15", 0, 0, CRTGreen, "GGGG Object-Oriented Programming Concepts", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic16", 0, 0, CRTGreen, "GGG Memory Management", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic17", 0, 0, CRTGreen, "GGG Standard Template Library (STL)", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic18", 0, 0, CRTGreen, "GGG File Handling in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic19", 0, 0, CRTGreen, "GGG Error Handling and Debugging", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic20", 0, 0, CRTGreen, "GGG Advanced Topics in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
-
-
-    {"Topic11", 0, 0, CRTGreen, "GGG Introduction to C++ Programming", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic12", 0, 0, CRTGreen, "GGG Data Types in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
-    {"Topic13", 0, 0, CRTGreen, "GGG Control Structures in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic14", 0, 0, CRTGreen, "GGG Functions and Parameters in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic15", 0, 0, CRTGreen, "GGGG Object-Oriented Programming Concepts", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic16", 0, 0, CRTGreen, "GGG Memory Management", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic17", 0, 0, CRTGreen, "GGG Standard Template Library (STL)", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic18", 0, 0, CRTGreen, "GGG File Handling in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic19", 0, 0, CRTGreen, "GGG Error Handling and Debugging", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic20", 0, 0, CRTGreen, "GGG Advanced Topics in C++", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1},
-
-
-    {"Topic18", 0, 0, CRTGreen, "XXXXXXXXXXXXXXXXXXX", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic19", 0, 0, CRTGreen, "yyyyyyyyyyyyyyyyyyy", RETRO_FONTH_PATH, NORMAL_FONT, false, introductionTopics, 1},
-    {"Topic20", 0, 0, CRTGreen, "fffffffffffffffff", RETRO_FONTH_PATH, NORMAL_FONT, false, dataTypesTopics, 1}
-};
 
 
 // Macro para obtener el nombre del vector
@@ -2229,7 +2163,6 @@ uint16_t initAndStartMainWindowLoop() {
                 case sf::Event::Closed:
                     window.close();
                     break;
-
                 case sf::Event::KeyPressed:
                     needsRedraw = true;
                     if (event.key.code == sf::Keyboard::Escape) {
@@ -2282,6 +2215,13 @@ uint16_t initAndStartMainWindowLoop() {
         }
 
         // Redraw only if necessary
+        //needsRedraw
+        //types
+        //window
+        //overflow_list
+        //movementThread
+        //movingObjectPointer
+        //selectedMenu
         if (needsRedraw) {
             window.clear();
             getTextureObjectByName(textureObjects, BACKGROUND_IMAGE_OBJ)->draw(window);
