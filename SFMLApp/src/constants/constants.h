@@ -13,7 +13,7 @@ extern const std::string FONTS_PATH;
 extern const std::string ICONS_PATH;
 
 // Fonts
-extern const std::string RETRO_FONT_PATH;  // Posible corrección
+extern const std::string RETRO_FONT_PATH; 
 
 // Audio
 extern const std::string MUSIC_FILE;

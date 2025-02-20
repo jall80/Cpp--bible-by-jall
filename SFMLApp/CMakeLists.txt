@@ -16,20 +16,25 @@ set(FONTS_DIR "${CMAKE_SOURCE_DIR}/fonts")
 set(AUDIOS_DIR "${CMAKE_SOURCE_DIR}/audios")
 set(IMAGES_DIR "${CMAKE_SOURCE_DIR}/images")
 set(CONSTANTS_DIR "${CMAKE_SOURCE_DIR}/src/constants")
+set(STRUCTURES_DIR "${CMAKE_SOURCE_DIR}/src/structures")
 
 # Include necessary directories
 include_directories(${SFML_INCLUDE_DIR})
 link_directories(${SFML_LIB_DIR})
 include_directories(${CONSTANTS_DIR})
+include_directories(${STRUCTURES_DIR})
 
-# Add the source file
+# Crear una biblioteca para constants.cpp
+add_library(constants_lib src/constants/constants.cpp)
+
+# Ahora crea el ejecutable, asegurándote de enlazar con constants_lib
 add_executable(SFMLApp 
     src/main.cpp
-    src/constants/constants.cpp
+    src/structures/structures.cpp
 )
 
-# Link SFML with the executable
-target_link_libraries(SFMLApp sfml-graphics sfml-audio sfml-window sfml-system)
+# Especifica que SFMLApp depende de constants_lib
+target_link_libraries(SFMLApp constants_lib sfml-graphics sfml-audio sfml-window sfml-system)
 
 # Copy SFML DLLs to the output directory
 file(GLOB SFML_DLLS "${SFML_BIN_DIR}/*.dll")
