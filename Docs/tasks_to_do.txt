@@ -1,0 +1,16 @@
+
+
+MUST DO:
+
+* It would be good to merge current code to main and create another branch from it to buils the DB.
+* Create a library called "utils" to realocate some fuctions that could be useful in other files.
+* Create JSON data base for menu tree.
+* Create basic JSON structure for lessons.
+* Create some initial examples for lessons.
+
+
+NICE TO HAVE:
+
+* Improve collision logic for moving objects. They get stuck some few times. Also it could be more realistic.
+* Improve initAndStartMainWindowLoop() function. Implement a clearner structure. 
+* Set the music on another thread.
