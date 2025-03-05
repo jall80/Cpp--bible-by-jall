@@ -36,4 +36,4 @@ Before you begin, make sure you have the following installed on your system:
 
 ### GUI Menu
 
-![Description of Image](cppBible\images\GUI\protoGui1_0.png)
+![GUI Menu](cppBible/images/GUI/protoGui1_0.png)
