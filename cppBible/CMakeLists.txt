@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Project name
-project(SFMLApp)
+project(cppBible)
 
 # Define C++ version and compilation flags
 set(CMAKE_CXX_STANDARD 17)
@@ -28,33 +28,33 @@ include_directories(${STRUCTURES_DIR})
 add_library(constants_lib src/constants/constants.cpp)
 
 # Ahora crea el ejecutable, asegurándote de enlazar con constants_lib
-add_executable(SFMLApp 
+add_executable(cppBible 
     src/main.cpp
     src/structures/structures.cpp
 )
 
-# Especifica que SFMLApp depende de constants_lib
-target_link_libraries(SFMLApp constants_lib sfml-graphics sfml-audio sfml-window sfml-system)
+# Especifica que cppBible depende de constants_lib
+target_link_libraries(cppBible constants_lib sfml-graphics sfml-audio sfml-window sfml-system)
 
 # Copy SFML DLLs to the output directory
 file(GLOB SFML_DLLS "${SFML_BIN_DIR}/*.dll")
 foreach(DLL ${SFML_DLLS})
-    add_custom_command(TARGET SFMLApp POST_BUILD
+    add_custom_command(TARGET cppBible POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${DLL} $<TARGET_FILE_DIR:SFMLApp>)
+        ${DLL} $<TARGET_FILE_DIR:cppBible>)
 endforeach()
 
 # Copy audio files to the output directory
-add_custom_command(TARGET SFMLApp POST_BUILD
+add_custom_command(TARGET cppBible POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${AUDIOS_DIR} $<TARGET_FILE_DIR:SFMLApp>/audios)
+    ${AUDIOS_DIR} $<TARGET_FILE_DIR:cppBible>/audios)
 
 # Copy fonts to the output directory
-add_custom_command(TARGET SFMLApp POST_BUILD
+add_custom_command(TARGET cppBible POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${FONTS_DIR} $<TARGET_FILE_DIR:SFMLApp>/fonts)
+    ${FONTS_DIR} $<TARGET_FILE_DIR:cppBible>/fonts)
 
 # Copy fonts to the output directory
-add_custom_command(TARGET SFMLApp POST_BUILD
+add_custom_command(TARGET cppBible POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${IMAGES_DIR} $<TARGET_FILE_DIR:SFMLApp>/images)
+    ${IMAGES_DIR} $<TARGET_FILE_DIR:cppBible>/images)

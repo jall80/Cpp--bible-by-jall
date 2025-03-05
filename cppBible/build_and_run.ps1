@@ -12,7 +12,7 @@ $currentDir = Get-Location
 Write-Host "Current working directory: $currentDir"
 
 # Change to the project directory from the current working directory
-Write-Host "Changing to the 'SFMLApp' directory..."
+Write-Host "Changing to the 'cppBible' directory..."
 cd "$currentDir"
 Write-Host "Now in the directory: $(Get-Location)"
 
@@ -39,7 +39,7 @@ Write-Host "Project built."
 try {
     # Modify the icon of the executable (using rcedit)
     Write-Host "Changing the icon of the executable..."
-    $exePath = ".\SFMLApp.exe"  # Path to the built executable
+    $exePath = ".\cppBible.exe"  # Path to the built executable
     $iconPath = ".\images\icons\cppIcono.ico"  # Path to the new icon file
 
     # Use rcedit to change the icon
@@ -53,5 +53,5 @@ catch {
 
 # Run the application
 Write-Host "Running the application..."
-.\SFMLApp.exe
+.\cppBible.exe
 Write-Host "Application executed."
